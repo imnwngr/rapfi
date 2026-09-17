@@ -688,6 +688,7 @@ std::string Board::trace(Rule rule) const
         switch (get(pos)) {
         case BLACK: ss << 'X'; break;
         case WHITE: ss << 'O'; break;
+        case WALL:  ss << '#';break;
         case EMPTY: ss << (isCandidate(pos) ? '*' : '.'); break;
         default: ss << ' '; break;
         }

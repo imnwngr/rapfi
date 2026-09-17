@@ -1,0 +1,161 @@
+name: Neutral Wall Smoke Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - "Rapfi/**"
+      - ".github/workflows/wall-smoke-test.yml"
+
+jobs:
+  wall-test:
+    runs-on: ubuntu-22.04
+
+    env:
+      CC: clang
+      CXX: clang++
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Rapfi
+        run: |
+          cmake -S Rapfi -B Rapfi/build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DNO_COMMAND_MODULES=ON \
+            -DFORCE_ASSERTION=ON \
+            -DUSE_AVX512=OFF \
+            -DUSE_BMI2=OFF \
+            -DUSE_VNNI=OFF
+
+      - name: Build Rapfi
+        run: |
+          cmake --build Rapfi/build -j2
+
+      - name: Test internal walls
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ENGINE="./Rapfi/build/pbrain-rapfi"
+
+          cat > /tmp/wall-test.txt <<'EOF'
+          START 15
+          YXBOARD
+          7,7,3
+          3,3,3
+          10,10,3
+          6,7,1
+          8,8,2
+          DONE
+          TRACEBOARD
+          TRACESEARCH
+          END
+          EOF
+
+          "$ENGINE" < /tmp/wall-test.txt > /tmp/wall-output.txt 2>&1
+
+          cat /tmp/wall-output.txt
+
+          echo "=== Checking WALL rendering ==="
+
+          if ! grep -q "#" /tmp/wall-output.txt; then
+            echo "ERROR: TRACEBOARD did not contain WALL markers (#)"
+            exit 1
+          fi
+
+          echo "PASS: WALL markers exist"
+
+          echo "=== Checking legal moves ==="
+
+          LEGAL_LINE=$(grep "Legal Moves" /tmp/wall-output.txt | tail -1 || true)
+
+          echo "$LEGAL_LINE"
+
+          if echo "$LEGAL_LINE" | grep -qw "H8"; then
+            echo "ERROR: WALL H8 appeared as a legal move"
+            exit 1
+          fi
+
+          if echo "$LEGAL_LINE" | grep -qw "D4"; then
+            echo "ERROR: WALL D4 appeared as a legal move"
+            exit 1
+          fi
+
+          if echo "$LEGAL_LINE" | grep -qw "K11"; then
+            echo "ERROR: WALL K11 appeared as a legal move"
+            exit 1
+          fi
+          if grep -q "Evaluator Eval\\[Black\\]" /tmp/wall-output.txt; then
+            echo "ERROR: Neural evaluator is still active on a WALL position"
+            exit 1
+          fi
+
+          if ! grep -q "Static Eval\\[Black\\]" /tmp/wall-output.txt; then
+            echo "ERROR: Classical evaluation was not produced"
+            exit 1
+          fi
+
+          echo "PASS: WALL position uses classical evaluation"
+          echo "PASS: WALL cells are not legal moves"
+      - name: Test wall Zobrist hash
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ENGINE="./Rapfi/build/pbrain-rapfi"
+
+          # Position A
+          cat > /tmp/hash-a.txt <<'EOF'
+          START 15
+          YXBOARD
+          7,7,3
+          3,3,3
+          10,10,3
+          6,7,1
+          8,8,2
+          DONE
+          TRACEBOARD
+          END
+          EOF
+
+          "$ENGINE" < /tmp/hash-a.txt > /tmp/hash-a-output.txt 2>&1
+
+          # Position B:
+          # same stones, but one WALL moved
+          cat > /tmp/hash-b.txt <<'EOF'
+          START 15
+          YXBOARD
+          7,8,3
+          3,3,3
+          10,10,3
+          6,7,1
+          8,8,2
+          DONE
+          TRACEBOARD
+          END
+          EOF
+
+          "$ENGINE" < /tmp/hash-b.txt > /tmp/hash-b-output.txt 2>&1
+
+          HASH_A=$(grep "Hash:" /tmp/hash-a-output.txt | tail -1 | awk '{print $NF}')
+          HASH_B=$(grep "Hash:" /tmp/hash-b-output.txt | tail -1 | awk '{print $NF}')
+
+          echo "Hash A: $HASH_A"
+          echo "Hash B: $HASH_B"
+
+          if [ -z "$HASH_A" ] || [ -z "$HASH_B" ]; then
+            echo "ERROR: Could not read hashes"
+            exit 1
+          fi
+
+          if [ "$HASH_A" = "$HASH_B" ]; then
+            echo "ERROR: Different WALL layouts produced the same board hash"
+            exit 1
+          fi
+
+          echo "PASS: WALL layout affects Zobrist hash"
+      
