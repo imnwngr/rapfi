@@ -154,23 +154,35 @@ void SearchThread::setBoardAndEvaluator(const Board &board)
     // Reset board instance in this thread to be null
     this->board.reset();
 
-    // Setup evaluator in this thread
-    if (!engine.evaluatorMaker)
+    // Existing NN evaluators are trained for normal
+    // BLACK / WHITE / EMPTY boards only
+    if (board.hasInternalWalls()) {
         evaluator.reset();
+    }
+    else if (!engine.evaluatorMaker) {
+        evaluator.reset();
+    }
     else {
-        const int  boardSize = board.size();
-        const Rule rule      = engine.ctx.options.rule;
+        const int boardSize = board.size();
+        const Rule rule = engine.ctx.options.rule;
 
-        // Clear loaded evaluator that does not match
-        if (evaluator && (evaluator->boardSize != boardSize || evaluator->rule != rule))
+        if (evaluator &&
+            (
+                evaluator->boardSize != boardSize ||
+                evaluator->rule != rule
+            )
+        ) {
             evaluator.reset();
+        }
 
-        if (!evaluator)
-            evaluator = engine.evaluatorMaker(boardSize, rule, numaId);
+        if (!evaluator) {
+            evaluator =
+                engine.evaluatorMaker(boardSize, rule, numaId);
+        }
     }
 
-    // Clone the board (this will also sync the evaluator to the board state)
-    this->board = std::make_unique<Board>(board, this);
+    this->board =
+        std::make_unique<Board>(board, this);
 }
 
 }  // namespace Search

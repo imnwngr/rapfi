@@ -521,7 +521,6 @@ void getPosition(bool startThink)
     // Read position sequence
     enum SideFlag { SELF = 1, OPPO = 2, WALL = 3 };
     std::vector<std::pair<Pos, SideFlag>> position;
-    std::vector<Pos> wallPositions;
 
     while (true) {
         std::string coordStr;
@@ -555,7 +554,7 @@ void getPosition(bool startThink)
         if (side == WALL)
             wallPositions.push_back(pos);
     }
-    
+
     board->newGame(options.rule, wallPositions);
 
     // The first move (either real move or pass) is always considered as BLACK
@@ -570,8 +569,13 @@ void getPosition(bool startThink)
     // Put stones on board
     for (auto [pos, side] : position) {
         if (side == WALL) {
-            wallPositions.push_back(pos);
+            // wall already installed by newGame()
             continue;
+        }
+        
+        if (pos != Pos::PASS && !board->isEmpty(pos)) {
+            ERRORL("Stone position overlaps a wall or occupied cell.");
+            return;
         }
 
         // Make sure current side to move correspond to the input side

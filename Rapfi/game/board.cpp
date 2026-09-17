@@ -168,6 +168,12 @@ void Board::newGame(const std::vector<Pos> &walls)
     passCount[WHITE]  = 0;
     currentSide       = BLACK;
     currentZobristKey = Hash::zobrist[BLACK][FULL_BOARD_CELL_COUNT - 1];
+    // Include internal wall layout in position hash
+    for (Bitboard::Cursor cur(wallBB);
+        Pos wall = cur.next();) {
+        currentZobristKey ^= Hash::zobrist[BLACK][wall];
+        currentZobristKey ^= Hash::zobrist[WHITE][wall];
+    }
     for (Pos i = Pos::FULL_BOARD_START; i < Pos::FULL_BOARD_END; i++) {
         if (!i.isInBoard(boardSize, boardSize))
             continue;
