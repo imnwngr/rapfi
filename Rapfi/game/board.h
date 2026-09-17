@@ -31,6 +31,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace Search {
 class SearchThread;
@@ -142,7 +143,7 @@ public:
     /// Initialize the board to an empty board state of rule R.
     /// @tparam R Rule to initialize the board.
     template <Rule R>
-    void newGame();
+    void newGame(const std::vector<Pos> &walls = {});
 
     /// Play a move and incrementally update the board state.
     /// @param pos Pos to put the next stone. Pos::PASS is allowed.
@@ -160,7 +161,7 @@ public:
     void undo();
 
     /// A dynamic dispatch version of newGame().
-    void newGame(Rule rule);
+    void newGame(Rule rule, const std::vector<Pos> &walls = {});
     /// A dynamic dispatch version of move().
     void move(Rule rule, Pos pos);
     /// A dynamic dispatch version of undo().
@@ -314,7 +315,7 @@ public:
     // general board info queries
 
     int                    size() const { return boardSize; }
-    int                    cellCount() const { return boardCellCount; }
+    int                    cellCount() const { return playableCellCount; }
     Pos                    centerPos() const { return {boardSize / 2, boardSize / 2}; }
     Pos                    startPos() const { return {0, 0}; }
     Pos                    endPos() const { return {boardSize - 1, boardSize - 1}; }
@@ -328,7 +329,7 @@ public:
     int   nonPassMoveCount() const { return moveCount - passMoveCount(); }
     int   passMoveCount() const { return passCount[BLACK] + passCount[WHITE]; }
     int   passMoveCountOfSide(Color side) const { return passCount[side]; }
-    int   movesLeft() const { return boardCellCount - nonPassMoveCount(); };
+    int   movesLeft() const { return playableCellCount - nonPassMoveCount(); };
     Color sideToMove() const { return currentSide; }
 
     /// Fetch the current board hash key.
@@ -437,6 +438,7 @@ private:
 
     int     boardSize;           ///< Side length of the board.
     int     boardCellCount;      ///< Number of playable cells (boardSize^2).
+    int     playableCellCount;
     int     moveCount;           ///< Number of moves played (stones + passes).
     int     passCount[SIDE_NB];  ///< Number of passes by each side.
     Color   currentSide;         ///< The side to move.
@@ -538,13 +540,20 @@ inline uint64_t Board::getKeyAt(Pos pos, int dir) const
     }
 }
 
-inline void Board::newGame(Rule rule)
+inline void Board::newGame(Rule rule, const std::vector<Pos> &walls)
 {
     switch (rule) {
-    case FREESTYLE: return newGame<FREESTYLE>();
-    case STANDARD: return newGame<STANDARD>();
-    case RENJU: return newGame<RENJU>();
-    default: assert(false && "invalid rule");
+    case FREESTYLE:
+        return newGame<FREESTYLE>(walls);
+
+    case STANDARD:
+        return newGame<STANDARD>(walls);
+
+    case RENJU:
+        return newGame<RENJU>(walls);
+
+    default:
+        assert(false && "invalid rule");
     }
 }
 

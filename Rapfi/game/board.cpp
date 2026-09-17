@@ -65,6 +65,7 @@ Board::Board(int boardSize) : Board(boardSize, Config::GeneralCfg.defaultCandida
 Board::Board(int boardSize, CandidateRange candRange)
     : boardSize(boardSize)
     , boardCellCount(boardSize * boardSize)
+    , playableCellCount(boardSize * boardSize)
     , moveCount(0)
     , passCount {0, 0}
     , currentSide(BLACK)
@@ -94,6 +95,7 @@ Board::Board(int boardSize, CandidateRange candRange)
 Board::Board(const Board &other, Search::SearchThread *thread)
     : boardSize(other.boardSize)
     , boardCellCount(other.boardCellCount)
+    , playableCellCount(other.playableCellCount)
     , moveCount(other.moveCount)
     , passCount {other.passCount[0], other.passCount[1]}
     , currentSide(other.currentSide)
@@ -131,7 +133,7 @@ Board::Board(const Board &other, Search::SearchThread *thread)
 }
 
 template <Rule R>
-void Board::newGame()
+void Board::newGame(const std::vector<Pos> &walls)
 {
     // Reset to an empty board, then compute every empty cell's patterns from scratch once;
     // all later positions are reached incrementally through move()/undo(). Wall cells' array
@@ -147,6 +149,19 @@ void Board::newGame()
     candidatesBB.zero();
     journalTop = 0;
 
+    // build internal wall mask
+    // dupe wall coord are auto collapsed by Bitboard
+    Bitboard wallBB;
+    wallBB.zero();
+
+    for (Pos wall : walls) {
+        if (wall.isInBoard(boardSize, boardSize))
+            wallBB.set(wall);
+    }
+
+    // number of actual playable intersections
+    playableCellCount = boardCellCount - static_cast<int>(wallBB.count());
+
     // Init board state to empty
     moveCount         = 0;
     passCount[BLACK]  = 0;
@@ -157,10 +172,15 @@ void Board::newGame()
         if (!i.isInBoard(boardSize, boardSize))
             continue;
 
-        // Seed empty cells with both color bits set (encoding 11); walls keep 00. Placing a stone
-        // later toggles one bit, leaving the opposite color's bit set (black 10, white 01).
+        // Internal neutral (wall)
+        // leave bitkey as 00, and do not mark it as playable/empty
+        if (wallBB.test(i))
+            continue;
+
+        // Normal playable empty cell = 11
         setBitKey(i, BLACK);
         setBitKey(i, WHITE);
+
         onBoardBB.set(i);
         emptyBB.set(i);
     }
@@ -205,9 +225,14 @@ void Board::newGame()
         evaluator_->initEmptyBoard();
 }
 
-template void Board::newGame<FREESTYLE>();
-template void Board::newGame<STANDARD>();
-template void Board::newGame<RENJU>();
+template void Board::newGame<FREESTYLE>(
+    const std::vector<Pos> &walls);
+
+template void Board::newGame<STANDARD>(
+    const std::vector<Pos> &walls);
+
+template void Board::newGame<RENJU>(
+    const std::vector<Pos> &walls);
 
 template <Rule R, Board::MoveType MT>
 void Board::move(Pos pos)

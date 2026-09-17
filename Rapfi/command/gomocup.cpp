@@ -549,6 +549,15 @@ void getPosition(bool startThink)
         }
     }
 
+    std::vector<Pos> wallPositions;
+
+    for (auto [pos, side] : position) {
+        if (side == WALL)
+            wallPositions.push_back(pos);
+    }
+    
+    board->newGame(options.rule, wallPositions);
+
     // The first move (either real move or pass) is always considered as BLACK
     Color selfColor = BLACK;
     for (auto [pos, side] : position) {
