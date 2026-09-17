@@ -521,6 +521,7 @@ void getPosition(bool startThink)
     // Read position sequence
     enum SideFlag { SELF = 1, OPPO = 2, WALL = 3 };
     std::vector<std::pair<Pos, SideFlag>> position;
+    std::vector<Pos> wallPositions;
 
     while (true) {
         std::string coordStr;
@@ -559,8 +560,10 @@ void getPosition(bool startThink)
 
     // Put stones on board
     for (auto [pos, side] : position) {
-        if (side == WALL)  // Currently wall is not supported
+        if (side == WALL) {
+            wallPositions.push_back(pos);
             continue;
+        }
 
         // Make sure current side to move correspond to the input side
         // If not, we add an extra PASS move to flip the side
