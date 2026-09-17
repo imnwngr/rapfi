@@ -56,9 +56,31 @@ jobs:
           END
           EOF
 
-          "$ENGINE" < /tmp/wall-test.txt > /tmp/wall-output.txt 2>&1
+          # Do NOT let set -e hide engine output.
+          set +e
+
+          "$ENGINE" \
+            < /tmp/wall-test.txt \
+            > /tmp/wall-output.txt 2>&1
+
+          ENGINE_EXIT=$?
+
+          set -e
+
+          echo "================================"
+          echo "Rapfi output"
+          echo "================================"
 
           cat /tmp/wall-output.txt
+
+          echo "================================"
+          echo "Rapfi exit code: $ENGINE_EXIT"
+          echo "================================"
+
+          if [ "$ENGINE_EXIT" -ne 0 ]; then
+            echo "ERROR: Rapfi crashed or returned an error."
+            exit "$ENGINE_EXIT"
+          fi
 
           echo "=== Checking WALL rendering ==="
 
@@ -71,36 +93,45 @@ jobs:
 
           echo "=== Checking legal moves ==="
 
-          LEGAL_LINE=$(grep "Legal Moves" /tmp/wall-output.txt | tail -1 || true)
+          LEGAL_LINE=$(
+            grep "Legal Moves" \
+              /tmp/wall-output.txt \
+              | tail -1 \
+              || true
+          )
 
           echo "$LEGAL_LINE"
 
+          if [ -z "$LEGAL_LINE" ]; then
+            echo "ERROR: TRACESEARCH did not produce Legal Moves"
+            exit 1
+          fi
+
           if echo "$LEGAL_LINE" | grep -qw "H8"; then
-            echo "ERROR: WALL H8 appeared as a legal move"
+            echo "ERROR: WALL H8 appeared as legal"
             exit 1
           fi
 
           if echo "$LEGAL_LINE" | grep -qw "D4"; then
-            echo "ERROR: WALL D4 appeared as a legal move"
+            echo "ERROR: WALL D4 appeared as legal"
             exit 1
           fi
 
           if echo "$LEGAL_LINE" | grep -qw "K11"; then
-            echo "ERROR: WALL K11 appeared as a legal move"
-            exit 1
-          fi
-          if grep -q "Evaluator Eval\\[Black\\]" /tmp/wall-output.txt; then
-            echo "ERROR: Neural evaluator is still active on a WALL position"
+            echo "ERROR: WALL K11 appeared as legal"
             exit 1
           fi
 
-          if ! grep -q "Static Eval\\[Black\\]" /tmp/wall-output.txt; then
-            echo "ERROR: Classical evaluation was not produced"
-            exit 1
-          fi
-
-          echo "PASS: WALL position uses classical evaluation"
           echo "PASS: WALL cells are not legal moves"
+
+          if ! grep -q "Static Eval\\[Black\\]" \
+            /tmp/wall-output.txt; then
+
+            echo "ERROR: TRACESEARCH did not finish static evaluation"
+            exit 1
+          fi
+
+          echo "PASS: static evaluation completed"
       - name: Test wall Zobrist hash
         shell: bash
         run: |

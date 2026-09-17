@@ -667,20 +667,23 @@ std::string Board::trace(Rule rule) const
        << "  LastF4[White]: " << st.lastFlex4AttackMove[WHITE] << '\n';
 
     auto printBoard = [&](auto &&posTextFunc, int textWidth = 1) {
-        FOR_EVERY_POSITION(this, pos)
-        {
-            int x = pos.x(), y = pos.y();
-            if (x != 0 || y != 0)
-                ss << ' ';
-            if (x == 0 && y != 0)
-                ss << '\n';
-            posTextFunc(pos);
-            if (x == size() - 1)
-                ss << ' ' << y + 1;
+        for (int y = 0; y < size(); y++) {
+            for (int x = 0; x < size(); x++) {
+                if (x != 0)
+                    ss << ' ';
+
+                Pos pos {x, y};
+                posTextFunc(pos);
+            }
+
+            ss << ' ' << y + 1 << '\n';
         }
-        ss << '\n';
+
         for (int x = 0; x < size(); x++)
-            ss << std::setw(textWidth) << char(x + 65) << " ";
+            ss << std::setw(textWidth)
+               << char(x + 65)
+               << " ";
+
         ss << '\n';
     };
 

@@ -69,6 +69,38 @@ static_assert(DenseHalfCnt<STANDARD> == 364 && DenseKeyCnt<STANDARD> == 132496);
 
 namespace detail {
 
+    /// Internal WALL blocks visibility along the line.
+    /// Once a wall is reached while walking away from the center,
+    /// every cell behind it is treated as WALL as well.
+    template <int H, bool NearAtLowBits>
+    constexpr uint32_t normalizeHalfWalls(uint32_t half)
+    {
+        uint32_t out = 0;
+        bool blocked = false;
+
+        for (int i = 0; i < H; i++) {
+            int shift =
+                NearAtLowBits
+                    ? 2 * i
+                    : 2 * (H - 1 - i);
+
+            uint32_t cell =
+                (half >> shift) & 0b11u;
+
+            if (blocked)
+                continue;
+
+            if (cell == 0b00u) {
+                blocked = true;
+                continue;
+            }
+
+            out |= cell << shift;
+        }
+
+        return out;
+    }
+
     /// Dense code of one half-line, or -1 if the half violates wall contiguity (a non-wall
     /// cell beyond the first wall cannot occur on a real board line).
     /// @tparam H             Number of cells in the half.
@@ -229,15 +261,43 @@ template <Rule R>
 inline uint32_t denseKey(uint64_t key)
 {
     constexpr int      H = HalfLineLen<R>;
-    constexpr uint32_t M = (1u << (2 * H)) - 1;
-    assert(isValidLineKey<R>(key));
+    constexpr uint32_t M =
+        (1u << (2 * H)) - 1;
 
-    uint32_t lo = uint32_t(key) & M;
-    uint32_t hi = uint32_t(key >> (2 * H + 2)) & M;
+    // Fold internal WALLs into a boundary-like
+    // visible run before doing dense lookup.
+    uint32_t lo =
+        detail::normalizeHalfWalls<H, false>(
+            uint32_t(key) & M
+        );
+
+    uint32_t hi =
+        detail::normalizeHalfWalls<H, true>(
+            uint32_t(
+                key >> (2 * H + 2)
+            ) & M
+        );
+
+    // Center cell remains EMPTY.
+    uint64_t normalizedKey =
+        uint64_t(lo)
+        |
+        (uint64_t(0b11) << (2 * H))
+        |
+        (uint64_t(hi) << (2 * H + 2));
+
+    assert(
+        isValidLineKey<R>(normalizedKey)
+    );
+
     if constexpr (H == 4)
-        return uint32_t(HALF_CODE_LO_F[lo]) + HALF_CODE_HI_F[hi];
+        return
+            uint32_t(HALF_CODE_LO_F[lo])
+            + HALF_CODE_HI_F[hi];
     else
-        return HALF_CODE_LO_S[lo] + HALF_CODE_HI_S[hi];
+        return
+            HALF_CODE_LO_S[lo]
+            + HALF_CODE_HI_S[hi];
 }
 
 /// Look up the line pattern of both colors from a raw 64-bit line key.
