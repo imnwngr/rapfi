@@ -169,6 +169,41 @@ jobs:
           fi
 
           echo "PASS: WALL cuts the line pattern"
+      - name: Test wall cuts vertical line
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ENGINE="./Rapfi/build/pbrain-rapfi"
+
+          cat > /tmp/wall-vertical-test.txt <<'EOF'
+          START 15
+          YXBOARD
+          7,7,3
+          7,4,1
+          7,5,1
+          7,6,1
+          7,8,1
+          7,9,1
+          DONE
+          TRACEBOARD
+          END
+          EOF
+
+          "$ENGINE" \
+            < /tmp/wall-vertical-test.txt \
+            > /tmp/wall-vertical-output.txt 2>&1
+
+          cat /tmp/wall-vertical-output.txt
+
+          if ! grep -q "LastP4\[Black\]\[A\]: None" \
+            /tmp/wall-vertical-output.txt; then
+
+            echo "ERROR: Vertical stones across WALL created a false A_FIVE pattern"
+            exit 1
+          fi
+
+          echo "PASS: WALL cuts vertical line pattern"
       - name: Test wall Zobrist hash
         shell: bash
         run: |
