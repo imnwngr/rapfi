@@ -276,7 +276,7 @@ public:
 
     /// Whether `pos` is an empty candidate cell: in the raw candidate set and currently empty (no
     /// box clip). Off-board positions read as false, so a neighbor probe needs no range check.
-    bool isEmptyCandidate(Pos pos) const { return emptyBB.test(pos) && candidatesBB.test(pos); && isNeutralOpeningMoveLegal(pos); }
+    bool isEmptyCandidate(Pos pos) const { return emptyBB.test(pos) && candidatesBB.test(pos) && isNeutralOpeningMoveLegal(pos); }
 
     /// Bitboard of all on-board (non-wall) cells; constant for the board's lifetime.
     const Bitboard &onBoard() const { return onBoardBB; }
