@@ -239,6 +239,156 @@ jobs:
           fi
 
           echo "PASS: WALL cuts diagonal line pattern"
+      - name: Test wall cuts anti-diagonal line
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ENGINE="./Rapfi/build/pbrain-rapfi"
+
+          cat > /tmp/wall-antidiagonal-test.txt <<'EOF'
+          START 15
+          YXBOARD
+          7,7,3
+          4,10,1
+          5,9,1
+          6,8,1
+          8,6,1
+          9,5,1
+          DONE
+          TRACEBOARD
+          END
+          EOF
+
+          "$ENGINE" \
+            < /tmp/wall-antidiagonal-test.txt \
+            > /tmp/wall-antidiagonal-output.txt 2>&1
+
+          cat /tmp/wall-antidiagonal-output.txt
+
+          if ! grep -q "LastP4\[Black\]\[A\]: None" \
+            /tmp/wall-antidiagonal-output.txt; then
+
+            echo "ERROR: Anti-diagonal stones across WALL created a false A_FIVE pattern"
+            exit 1
+          fi
+
+          echo "PASS: WALL cuts anti-diagonal line pattern"
+
+
+      - name: Test walls do not consume turns
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ENGINE="./Rapfi/build/pbrain-rapfi"
+
+          cat > /tmp/wall-turn-test.txt <<'EOF'
+          START 15
+          YXBOARD
+          7,7,3
+          3,3,3
+          10,10,3
+          DONE
+          TRACEBOARD
+          END
+          EOF
+
+          "$ENGINE" \
+            < /tmp/wall-turn-test.txt \
+            > /tmp/wall-turn-output.txt 2>&1
+
+          cat /tmp/wall-turn-output.txt
+
+          if ! grep -q "Ply: 0" /tmp/wall-turn-output.txt; then
+            echo "ERROR: WALLs incorrectly consumed ply"
+            exit 1
+          fi
+
+          if ! grep -q "NonPassCount: 0" /tmp/wall-turn-output.txt; then
+            echo "ERROR: WALLs incorrectly counted as moves"
+            exit 1
+          fi
+
+          if ! grep -q "SideToMove: Black" /tmp/wall-turn-output.txt; then
+            echo "ERROR: Black is not first after WALL setup"
+            exit 1
+          fi
+
+          echo "PASS: WALLs do not consume turns and Black moves first"
+
+
+      - name: Test stone cannot overlap wall
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ENGINE="./Rapfi/build/pbrain-rapfi"
+
+          cat > /tmp/wall-overlap-test.txt <<'EOF'
+          START 15
+          YXBOARD
+          7,7,3
+          3,3,3
+          10,10,3
+          7,7,1
+          DONE
+          TRACEBOARD
+          END
+          EOF
+
+          "$ENGINE" \
+            < /tmp/wall-overlap-test.txt \
+            > /tmp/wall-overlap-output.txt 2>&1 || true
+
+          cat /tmp/wall-overlap-output.txt
+
+          if ! grep -q "Stone position overlaps a wall or occupied cell" \
+            /tmp/wall-overlap-output.txt; then
+
+            echo "ERROR: Stone was allowed to overlap WALL"
+            exit 1
+          fi
+
+          echo "PASS: Stone cannot overlap WALL"
+
+
+      - name: Test wall cuts white line
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ENGINE="./Rapfi/build/pbrain-rapfi"
+
+          cat > /tmp/wall-white-test.txt <<'EOF'
+          START 15
+          YXBOARD
+          7,7,3
+          0,0,1
+          4,7,2
+          5,7,2
+          6,7,2
+          8,7,2
+          9,7,2
+          DONE
+          TRACEBOARD
+          END
+          EOF
+
+          "$ENGINE" \
+            < /tmp/wall-white-test.txt \
+            > /tmp/wall-white-output.txt 2>&1
+
+          cat /tmp/wall-white-output.txt
+
+          if ! grep -q "LastP4\[White\]\[A\]: None" \
+            /tmp/wall-white-output.txt; then
+
+            echo "ERROR: White stones across WALL created a false A_FIVE pattern"
+            exit 1
+          fi
+
+          echo "PASS: WALL cuts White line pattern"
       - name: Test wall Zobrist hash
         shell: bash
         run: |
