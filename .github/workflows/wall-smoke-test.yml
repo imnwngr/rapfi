@@ -209,14 +209,33 @@ jobs:
 
           "$ENGINE" < /tmp/hash-b.txt > /tmp/hash-b-output.txt 2>&1
 
-          HASH_A=$(grep "Hash:" /tmp/hash-a-output.txt | tail -1 | awk '{print $NF}')
-          HASH_B=$(grep "Hash:" /tmp/hash-b-output.txt | tail -1 | awk '{print $NF}')
+          # Position C:
+          # same WALL layout as A, but different input order
+          cat > /tmp/hash-c.txt <<'EOF'
+          START 15
+          YXBOARD
+          10,10,3
+          7,7,3
+          3,3,3
+          6,7,1
+          8,8,2
+          DONE
+          TRACEBOARD
+          END
+          EOF
+
+          "$ENGINE" < /tmp/hash-c.txt > /tmp/hash-c-output.txt 2>&1
+
+          HASH_A=$(grep "Hash:" /tmp/hash-a-output.txt | tail -1 | awk '{print $NF}' || true)
+          HASH_B=$(grep "Hash:" /tmp/hash-b-output.txt | tail -1 | awk '{print $NF}' || true)
+          HASH_C=$(grep "Hash:" /tmp/hash-c-output.txt | tail -1 | awk '{print $NF}' || true)
 
           echo "Hash A: $HASH_A"
           echo "Hash B: $HASH_B"
+          echo "Hash C: $HASH_C"
 
-          if [ -z "$HASH_A" ] || [ -z "$HASH_B" ]; then
-            echo "ERROR: Could not read hashes"
+          if [ -z "$HASH_A" ] || [ -z "$HASH_B" ] || [ -z "$HASH_C" ]; then
+            echo "ERROR: Could not read one or more hashes"
             exit 1
           fi
 
@@ -225,5 +244,11 @@ jobs:
             exit 1
           fi
 
+          if [ "$HASH_A" != "$HASH_C" ]; then
+            echo "ERROR: Same WALL layout in different order produced different hashes"
+            exit 1
+          fi
+
           echo "PASS: WALL layout affects Zobrist hash"
+          echo "PASS: WALL hash is independent of input order"
       
