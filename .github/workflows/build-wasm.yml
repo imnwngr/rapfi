@@ -43,8 +43,8 @@ jobs:
       - name: Upload WASM
         uses: actions/upload-artifact@v4
         with:
-          name: rapfi-wasm-single
+          name: rapfi-wasm-single-simd128
           path: |
-            Rapfi/build/wasm-single/rapfi-single.js
-            Rapfi/build/wasm-single/rapfi-single.wasm
-            Rapfi/build/wasm-single/rapfi.data
+            Rapfi/build/wasm-single/rapfi-single-simd128.js
+            Rapfi/build/wasm-single/rapfi-single-simd128.wasm
+            Rapfi/build/wasm-single/rapfi-single-simd128.data
