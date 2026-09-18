@@ -389,6 +389,250 @@ jobs:
           fi
 
           echo "PASS: WALL cuts White line pattern"
+      - name: Test Neutral opening rules
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ENGINE="./Rapfi/build/pbrain-rapfi"
+
+          echo "=== X1 rule ==="
+
+          cat > /tmp/x1-rule.txt <<'EOF'
+          START 15
+          YXBOARD
+          7,7,3
+          3,3,3
+          10,10,3
+          DONE
+          TRACESEARCH
+          END
+          EOF
+
+          "$ENGINE" \
+            < /tmp/x1-rule.txt \
+            > /tmp/x1-rule.out 2>&1
+
+          X1_LINE=$(
+            grep "Legal Moves" \
+              /tmp/x1-rule.out \
+              | tail -1 \
+              || true
+          )
+
+          echo "$X1_LINE"
+
+          if ! echo "$X1_LINE" | grep -qw "G7"; then
+            echo "ERROR: legal adjacent X1 missing"
+            exit 1
+          fi
+
+          if echo "$X1_LINE" | grep -qw "A1"; then
+            echo "ERROR: far X1 was incorrectly legal"
+            exit 1
+          fi
+
+
+          echo "=== X2 rule ==="
+
+          cat > /tmp/x2-rule.txt <<'EOF'
+          START 15
+          YXBOARD
+          7,7,3
+          3,3,3
+          10,10,3
+          6,7,1
+          0,0,2
+          DONE
+          TRACESEARCH
+          END
+          EOF
+
+          "$ENGINE" \
+            < /tmp/x2-rule.txt \
+            > /tmp/x2-rule.out 2>&1
+
+          X2_LINE=$(
+            grep "Legal Moves" \
+              /tmp/x2-rule.out \
+              | tail -1 \
+              || true
+          )
+
+          echo "$X2_LINE"
+
+          # X1 = G8.
+          # C8 is distance 4 -> legal.
+          if ! echo "$X2_LINE" | grep -qw "C8"; then
+            echo "ERROR: distance-4 X2 missing"
+            exit 1
+          fi
+
+          # D8 is distance 3 -> illegal.
+          if echo "$X2_LINE" | grep -qw "D8"; then
+            echo "ERROR: distance-3 X2 was legal"
+            exit 1
+          fi
+
+
+          echo "=== X3 returns to normal ==="
+
+          cat > /tmp/x3-rule.txt <<'EOF'
+          START 15
+          YXBOARD
+          7,7,3
+          3,3,3
+          10,10,3
+          6,7,1
+          0,0,2
+          2,7,1
+          14,14,2
+          DONE
+          TRACESEARCH
+          END
+          EOF
+
+          "$ENGINE" \
+            < /tmp/x3-rule.txt \
+            > /tmp/x3-rule.out 2>&1
+
+          X3_LINE=$(
+            grep "Legal Moves" \
+              /tmp/x3-rule.out \
+              | tail -1 \
+              || true
+          )
+
+          echo "$X3_LINE"
+
+          if ! echo "$X3_LINE" | grep -qw "D8"; then
+            echo "ERROR: X3 is still using X2 restriction"
+            exit 1
+          fi
+
+
+          echo "=== Real engine X1 ==="
+
+          cat > /tmp/x1-think.txt <<'EOF'
+          START 15
+          INFO timeout_turn 50
+          BOARD
+          7,7,3
+          3,3,3
+          10,10,3
+          DONE
+          END
+          EOF
+
+          "$ENGINE" \
+            < /tmp/x1-think.txt \
+            > /tmp/x1-think.out 2>&1
+
+          cat /tmp/x1-think.out
+
+          MOVE=$(
+            grep -E '^[0-9]+,[0-9]+$' \
+              /tmp/x1-think.out \
+              | tail -1 \
+              || true
+          )
+
+          if [ -z "$MOVE" ]; then
+            echo "ERROR: engine produced no X1"
+            exit 1
+          fi
+
+          X=${MOVE%,*}
+          Y=${MOVE#*,}
+
+          ADJ=0
+
+          for WALL in "7 7" "3 3" "10 10"; do
+            set -- $WALL
+
+            WX=$1
+            WY=$2
+
+            DX=$((X-WX))
+            DY=$((Y-WY))
+
+            [ $DX -lt 0 ] && DX=$((-DX))
+            [ $DY -lt 0 ] && DY=$((-DY))
+
+            if [ $DX -le 1 ] \
+              && [ $DY -le 1 ] \
+              && { [ $DX -ne 0 ] || [ $DY -ne 0 ]; }; then
+              ADJ=1
+            fi
+          done
+
+          if [ "$ADJ" -ne 1 ]; then
+            echo "ERROR: engine X1 is not adjacent to Neutral: $MOVE"
+            exit 1
+          fi
+
+
+          echo "=== O1 free + real engine X2 ==="
+
+          cat > /tmp/o1-free.txt <<'EOF'
+          START 15
+          INFO timeout_turn 50
+          YXBOARD
+          7,7,3
+          3,3,3
+          10,10,3
+          6,7,1
+          DONE
+          TURN 14,14
+          END
+          EOF
+
+          "$ENGINE" \
+            < /tmp/o1-free.txt \
+            > /tmp/o1-free.out 2>&1
+
+          cat /tmp/o1-free.out
+
+          if grep -q "Coord is not valid or empty" \
+            /tmp/o1-free.out; then
+
+            echo "ERROR: O1 was incorrectly restricted"
+            exit 1
+          fi
+
+          MOVE=$(
+            grep -E '^[0-9]+,[0-9]+$' \
+              /tmp/o1-free.out \
+              | tail -1 \
+              || true
+          )
+
+          if [ -z "$MOVE" ]; then
+            echo "ERROR: engine produced no X2"
+            exit 1
+          fi
+
+          X=${MOVE%,*}
+          Y=${MOVE#*,}
+
+          DX=$((X-6))
+          DY=$((Y-7))
+
+          [ $DX -lt 0 ] && DX=$((-DX))
+          [ $DY -lt 0 ] && DY=$((-DY))
+
+          DIST=$DX
+
+          if [ $DY -gt $DIST ]; then
+            DIST=$DY
+          fi
+
+          if [ $DIST -le 3 ]; then
+            echo "ERROR: engine X2 is inside radius 3: $MOVE"
+            exit 1
+          fi
+
+          echo "PASS: X1 / O1 / X2 / X3 opening rules"
       - name: Test wall Zobrist hash
         shell: bash
         run: |

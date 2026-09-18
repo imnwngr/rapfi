@@ -257,10 +257,18 @@ public:
     /// @param pos The pos to query, which is assumed to meet 'pos.valid() == true'.
     bool isEmpty(Pos pos) const { return emptyBB.test(pos); }
 
+    /// Whether this board uses the custom three-Neutral opening rule.
+    bool hasNeutralOpeningRule() const { return boardCellCount - playableCellCount == 3; }
+
+    /// X1 must be adjacent to a Neutral
+    /// X2 must have Chebyshev distance > 3 from X1
+    /// White and X3+ are unrestricted by this special opening rule
+    bool isNeutralOpeningMoveLegal(Pos pos) const;
+
     /// Check if the pos is legal (on an empty cell or is a pass move). The PASS check comes first
     /// so a pass never reaches isEmpty()/get(), which would index out of the cell grid for
     /// Pos::PASS.
-    bool isLegal(Pos pos) const { return pos.valid() && (pos == Pos::PASS || isEmpty(pos)); }
+    bool isLegal(Pos pos) const { return pos.valid() && (pos == Pos::PASS || (isEmpty(pos) && isNeutralOpeningMoveLegal(pos))); }
 
     /// Whether `pos` is currently a move candidate (some played stone's range covers it). This is
     /// the raw in-range test (no box / empty filtering), as used by neighbor move generation.
@@ -268,7 +276,7 @@ public:
 
     /// Whether `pos` is an empty candidate cell: in the raw candidate set and currently empty (no
     /// box clip). Off-board positions read as false, so a neighbor probe needs no range check.
-    bool isEmptyCandidate(Pos pos) const { return emptyBB.test(pos) && candidatesBB.test(pos); }
+    bool isEmptyCandidate(Pos pos) const { return emptyBB.test(pos) && candidatesBB.test(pos); && isNeutralOpeningMoveLegal(pos); }
 
     /// Bitboard of all on-board (non-wall) cells; constant for the board's lifetime.
     const Bitboard &onBoard() const { return onBoardBB; }
@@ -281,8 +289,27 @@ public:
     /// move/undo in the loop body. Used by FOR_EVERY_CAND_POS.
     Bitboard candidateIterSet() const
     {
+        // X1 and X2 cannot use Rapfi's normal local candidate area.
+        
+        // X1 must be around Neutral.
+        // X2 deliberately has to be far from X1.
+        if (hasNeutralOpeningRule() && currentSide == BLACK && (nonPassMoveCount() == 0 || nonPassMoveCount() == 2))
+        {
+            Bitboard bb;
+            bb.zero();
+
+            for (Bitboard::Cursor cur(emptyBB); Pos pos = cur.next();)
+            {
+                if (isNeutralOpeningMoveLegal(pos))
+                    bb.set(pos);
+            }
+
+            return bb;
+        }
+
         Bitboard bb;
         bb.buildCandSet(candidatesBB, emptyBB, stateInfo().candArea);
+
         return bb;
     }
 

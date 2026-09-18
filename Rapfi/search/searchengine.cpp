@@ -354,7 +354,8 @@ bool SearchEngine::tryTrivialBestmove(SearchThread &main)
     SearchOptions &opts = ctx.options;
 
     // Probe opening database and find if there is a prepared opening
-    if (!opts.disableOpeningQuery
+    if (!main.board->hasNeutralOpeningRule()
+        && !opts.disableOpeningQuery
         && Opening::probeOpening(*main.board, opts.rule, ctx.resultAction, ctx.bestMove)) {
         ctx.markPonderingAvailable();
         return true;
@@ -364,7 +365,8 @@ bool SearchEngine::tryTrivialBestmove(SearchThread &main)
     if (main.rootMoves.empty()) {
         // If there is no stones on board, it is possible that the opponent played a pass
         // move at the start of one game. We just choose the center location to play.
-        if (main.board->nonPassMoveCount() == 0) {
+        if (main.board->nonPassMoveCount() == 0
+            && !main.board->hasNeutralOpeningRule()) {
             ctx.bestMove = main.board->centerPos();
             return true;
         }
@@ -373,6 +375,9 @@ bool SearchEngine::tryTrivialBestmove(SearchThread &main)
         // point mate in Renju, or all legal points have been blocked.
         FOR_EVERY_EMPTY_POS(main.board, pos)
         {
+            if (!main.board->isLegal(pos))
+                continue;
+            
             ctx.bestMove = pos;
             ctx.printer.printBestmoveWithoutSearch(main, pos, mated_in(0), 0, nullptr);
             return true;

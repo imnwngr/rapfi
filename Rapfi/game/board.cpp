@@ -584,6 +584,48 @@ bool Board::checkForbiddenPoint(Pos pos) const
     return winByThree >= 2;
 }
 
+bool Board::isNeutralOpeningMoveLegal(Pos pos) const
+{
+    if (!hasNeutralOpeningRule() || currentSide != BLACK)
+        return true;
+
+    // X1:
+    // must be one of the 8 surrounding cells
+    // of at least one Neutral
+    if (nonPassMoveCount() == 0)
+    {
+        for (int dy = -1; dy <= 1; dy++)
+        {
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                if (dx == 0 && dy == 0)
+                    continue;
+
+                Pos neighbor { pos.x() + dx, pos.y() + dy };
+
+                if (neighbor.isInBoard(boardSize, boardSize) && !onBoardBB.test(neighbor))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    // X2:
+    // outside Chebyshev radius 3 from X1.
+    if (nonPassMoveCount() == 2)
+    {
+        Pos x1 = getLastActualMoveOfSide(BLACK);
+        return x1 != Pos::NONE && Pos::distance(pos, x1) > 3;
+    }
+
+    // X3 and later:
+    // normal Gomoku.
+    return true;
+}
+
 Score Board::score(Rule rule, Pos pos, Color side) const
 {
     const auto [pcodeBlack, pcodeWhite] = pcodePair(pos);

@@ -255,8 +255,10 @@ Pos MovePicker::pickNextMove(Pred filter)
             std::swap(*curMove,
                       *std::min_element(curMove, endMove, ScoredMove::ScoreComparator {}));
 
-        if (curMove->pos != ttMove && (!forbidden || !board.checkForbiddenPoint(curMove->pos))
-            && filter()) {
+        if (curMove->pos != ttMove && board.isLegal(curMove->pos)
+            && (!forbidden || !board.checkForbiddenPoint(curMove->pos))
+            && filter())
+        {
             curScore = curMove->score;
             if (useNormalizedPolicy)
                 curPolicy = curMove->policy;
