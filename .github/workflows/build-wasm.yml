@@ -1,0 +1,48 @@
+name: Build Rapfi WASM
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-wasm:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: latest
+
+      - name: Configure WASM
+        run: |
+          mkdir -p Rapfi/build/wasm-single
+
+          cd Rapfi/build/wasm-single
+
+          emcmake cmake ../.. \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DNO_COMMAND_MODULES=ON \
+            -DNO_MULTI_THREADING=ON \
+            -DUSE_WASM_SIMD=OFF \
+            -DUSE_WASM_SIMD_RELAXED=OFF
+
+      - name: Build WASM
+        run: |
+          cd Rapfi/build/wasm-single
+          emmake cmake --build . -j2
+
+      - name: Show output
+        run: |
+          find Rapfi/build/wasm-single -maxdepth 2 -type f | sort
+
+      - name: Upload WASM
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapfi-wasm-single
+          path: |
+            Rapfi/build/wasm-single/rapfi-single.js
+            Rapfi/build/wasm-single/rapfi-single.wasm
+            Rapfi/build/wasm-single/rapfi.data
