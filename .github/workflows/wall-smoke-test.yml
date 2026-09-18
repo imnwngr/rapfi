@@ -170,7 +170,6 @@ jobs:
 
           echo "PASS: WALL cuts the line pattern"
       - name: Test wall Zobrist hash
-        if: ${{ false }}
         shell: bash
         run: |
           set -euo pipefail
