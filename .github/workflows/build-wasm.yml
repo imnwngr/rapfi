@@ -28,7 +28,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DNO_COMMAND_MODULES=ON \
             -DNO_MULTI_THREADING=ON \
-            -DUSE_WASM_SIMD=OFF \
+            -DUSE_WASM_SIMD=ON \
             -DUSE_WASM_SIMD_RELAXED=OFF
 
       - name: Build WASM
